@@ -1,0 +1,68 @@
+import random
+import requests
+import telebot
+from telebot import types
+
+# Токен бота
+TOKEN = '6772342964:AAHFSewz3tTNuautnHIKrJxc8saqdGHBcpc'
+
+# Создание экземпляра бота
+bot = telebot.TeleBot(TOKEN)
+
+# Загрузка данных из JSON файла
+def load_data():
+    url = 'https://api.npoint.io/e46681033248a4aec181'
+    response = requests.get(url)
+    data = response.json()
+    return data
+
+# Отправка рандомного приветственного сообщения с кнопками
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    welcome_messages = [
+        'Добро пожаловать в мир биологических знаний! Готовы проверить свои интеллектуальные способности в игре по биологии? Скажите "Начать" для старта.',
+        'Приветствую тебя, будущий биолог! Жаждешь новых знаний? Тогда давай играть и расширять свой ум вместе! Скажите "Начать" для старта.',
+        'Привет! Есть ли у тебя острый ум и знания в области биологии? Докажи это, сыграв с нами в интеллектуальную игру! Скажите "Начать" для старта.',
+        'Добро пожаловать в биологический мир игры! Уверены, ты сможешь ответить на вопросы и стать настоящим экспертом по биологии! Скажите "Начать" для старта.',
+        'Привет! Погрузись в увлекательный мир науки и биологии через нашу игру. Докажи свои знания и стань чемпионом! Скажите "Начать" для старта.'
+    ]
+    random_message = random.choice(welcome_messages)
+    start_button = types.KeyboardButton('Начать')
+    markup = types.ReplyKeyboardMarkup(row_width=1)
+    markup.add(start_button)
+    bot.send_message(message.chat.id, random_message, reply_markup=markup)
+
+# Обработка команды "Начать"
+@bot.message_handler(func=lambda message: message.text == 'Начать' or message.text == 'Да' or message.text == 'Следующий вопрос')
+def start_game(message):
+    data = load_data()
+    random_definition = random.choice(data)
+    bot.send_message(message.chat.id, random_definition['definition'])
+    bot.register_next_step_handler(message, check_answer, random_definition)
+
+# Проверка ответа пользователя
+def check_answer(message, random_definition):
+    user_answer = message.text.lower()
+    correct_answer = str(random_definition['term']).lower()
+    if user_answer == correct_answer:
+        reply = f"Молодец! \nПояснение: {random_definition['description']}."
+        next_button = 'Следующий вопрос'
+    else:
+        reply = f"В следующий раз получится. Правильный ответ: <b>{random_definition['term']}</b>. \nПояснение: {random_definition['description']}."
+        next_button = 'Следующий вопрос'
+    stop_button = 'Нет'
+    markup = types.ReplyKeyboardMarkup(row_width=2)
+    markup.add(next_button, stop_button)
+    bot.send_message(message.chat.id, reply, reply_markup=markup)
+
+
+# Обработка команды "Нет"
+@bot.message_handler(func=lambda message: message.text == 'Нет')
+def stop_game(message):
+    start_button = 'Начать'
+    markup = types.ReplyKeyboardMarkup(row_width=1)
+    markup.add(start_button)
+    bot.send_message(message.chat.id, "Прощайте! Чтобы начать игру снова, нажмите кнопку 'Начать'.", reply_markup=markup)
+
+# Запуск бота
+bot.polling()
